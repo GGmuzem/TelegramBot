@@ -1,0 +1,39 @@
+# Dockerfile для Payment Webhook Service
+FROM python:3.11-slim
+
+# Системные зависимости
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Рабочая директория
+WORKDIR /app
+
+# Зависимости Python
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Пользователь
+RUN adduser --disabled-password --gecos '' --shell /bin/bash user \
+    && chown -R user:user /app
+USER user
+
+# Код приложения
+COPY --chown=user:user ./src /app/src
+COPY --chown=user:user ./config.py /app/
+COPY --chown=user:user ./database_models.py /app/
+COPY --chown=user:user ./database_crud.py /app/
+COPY --chown=user:user ./yookassa_provider.py /app/
+COPY --chown=user:user ./redis_client.py /app/
+
+# Переменные окружения
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+
+# Порт
+EXPOSE 8000
+
+# Запуск
+CMD ["python", "src/webhook/main.py"]
