@@ -1,8 +1,12 @@
 # Dockerfile для AI Generator с поддержкой RTX 5080
-FROM nvidia/cuda:12.8-devel-ubuntu22.04
+FROM nvidia/cuda:12.1.1-devel-ubuntu22.04
 
-# Устанавливаем Python 3.11
-RUN apt-get update && apt-get install -y \
+# Копируем и запускаем скрипт установки
+COPY scripts/setup_rtx5080.sh /app/scripts/setup_rtx5080.sh
+RUN chmod +x /app/scripts/setup_rtx5080.sh && /app/scripts/setup_rtx5080.sh
+
+# Устанавливаем Python 3.11 и другие зависимости
+RUN apt-get update && apt-get install -y --no-install-recommends \
     software-properties-common \
     && add-apt-repository ppa:deadsnakes/ppa \
     && apt-get update && apt-get install -y \
@@ -10,9 +14,6 @@ RUN apt-get update && apt-get install -y \
     python3.11-dev \
     python3.11-venv \
     python3-pip \
-    build-essential \
-    cmake \
-    git \
     libjpeg-dev \
     libpng-dev \
     libtiff-dev \
@@ -25,8 +26,6 @@ RUN apt-get update && apt-get install -y \
     libgtk-3-dev \
     libatlas-base-dev \
     gfortran \
-    curl \
-    wget \
     && rm -rf /var/lib/apt/lists/*
 
 # Создаем символическую ссылку для python
@@ -41,14 +40,8 @@ WORKDIR /app
 # Копируем requirements
 COPY requirements.txt .
 
-# Устанавливаем PyTorch с поддержкой CUDA 12.8 и RTX 5080
-RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
-
 # Устанавливаем остальные зависимости
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Устанавливаем специальные пакеты для RTX 5080
-RUN pip install accelerate transformers diffusers safetensors xformers
 
 # Создаем директории для моделей
 RUN mkdir -p /app/models /app/logs
@@ -60,12 +53,6 @@ USER user
 
 # Копируем код
 COPY --chown=user:user ./src /app/src
-COPY --chown=user:user ./config.py /app/
-COPY --chown=user:user ./database_models.py /app/
-COPY --chown=user:user ./database_crud.py /app/
-COPY --chown=user:user ./ai_generator_service.py /app/
-COPY --chown=user:user ./redis_client.py /app/
-COPY --chown=user:user ./minio_client.py /app/
 
 # Переменные окружения
 ENV PYTHONPATH=/app
@@ -77,4 +64,4 @@ ENV TORCH_CUDA_ARCH_LIST="7.0;7.5;8.0;8.6;8.9;9.0;12.0"
 EXPOSE 8002
 
 # Команда запуска
-CMD ["python", "ai_generator_service.py"]
+CMD ["celery", "-A", "src.shared.celery_app", "worker", "--loglevel=info"]

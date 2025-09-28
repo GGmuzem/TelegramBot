@@ -22,11 +22,6 @@ USER user
 
 # Код приложения
 COPY --chown=user:user ./src /app/src
-COPY --chown=user:user ./config.py /app/
-COPY --chown=user:user ./database_models.py /app/
-COPY --chown=user:user ./database_crud.py /app/
-COPY --chown=user:user ./yookassa_provider.py /app/
-COPY --chown=user:user ./redis_client.py /app/
 
 # Переменные окружения
 ENV PYTHONPATH=/app
@@ -36,4 +31,4 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 8000
 
 # Запуск
-CMD ["python", "src/webhook/main.py"]
+CMD ["uvicorn", "src.payment.webhook:app", "--host", "0.0.0.0", "--port", "8000"]

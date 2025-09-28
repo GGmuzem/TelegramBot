@@ -2,59 +2,46 @@
 Клавиатуры для системы платежей
 """
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
-from src.shared.config import settings, PACKAGES
+from src.shared.config import settings
 
 
-def get_buy_packages_keyboard() -> InlineKeyboardMarkup:
+def get_buy_packages_keyboard(tariffs: list) -> InlineKeyboardMarkup:
     """Клавиатура выбора пакетов для покупки"""
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        # Разовая покупка
-        [InlineKeyboardButton(
-            text="💎 Разовая - 49₽ (1 изображение)",
-            callback_data="buy_once"
-        )],
-        # Пакеты
-        [InlineKeyboardButton(
-            text="📦 Базовый - 299₽ (10 изображений)",
-            callback_data="buy_basic"
-        )],
-        [InlineKeyboardButton(
-            text="⭐ Премиум - 599₽ (25 изображений + приоритет)",
-            callback_data="buy_premium"
-        )],
-        [InlineKeyboardButton(
-            text="🔥 Профи - 1299₽ (60 изображений + без очереди)",
-            callback_data="buy_pro"
-        )],
-        # Навигация
-        [InlineKeyboardButton(
-            text="◀️ Назад в меню",
-            callback_data="back_to_main"
-        )]
-    ])
-    return keyboard
+    buttons = []
+    for tariff in tariffs:
+        buttons.append([InlineKeyboardButton(
+            text=f"💎 {tariff.name} - {tariff.price}₽ ({tariff.generations} изображений)",
+            callback_data=f"buy_{tariff.id}"
+        )])
+    
+    buttons.append([InlineKeyboardButton(
+        text="◀️ Назад в меню",
+        callback_data="back_to_main"
+    )])
+    
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-def get_package_details_keyboard(package: str) -> InlineKeyboardMarkup:
+def get_package_details_keyboard(tariff_id: int) -> InlineKeyboardMarkup:
     """Клавиатура с деталями пакета и способами оплаты"""
     
     keyboard_buttons = [
         # Способы оплаты
         [InlineKeyboardButton(
             text="💳 Банковская карта",
-            callback_data=f"pay_{package}_card"
+            callback_data=f"pay_{tariff_id}_card"
         )],
         [InlineKeyboardButton(
             text="📱 СБП (Система быстрых платежей)",
-            callback_data=f"pay_{package}_sbp"
+            callback_data=f"pay_{tariff_id}_sbp"
         )],
         [InlineKeyboardButton(
             text="🟢 SberPay",
-            callback_data=f"pay_{package}_sberpay"
+            callback_data=f"pay_{tariff_id}_sberpay"
         )],
         [InlineKeyboardButton(
             text="🟡 ЮMoney",
-            callback_data=f"pay_{package}_yoomoney"
+            callback_data=f"pay_{tariff_id}_yoomoney"
         )]
     ]
     
@@ -62,7 +49,7 @@ def get_package_details_keyboard(package: str) -> InlineKeyboardMarkup:
     if settings.BOT_WEBHOOK_URL:
         keyboard_buttons.insert(0, [InlineKeyboardButton(
             text="🌐 Удобная оплата (Web App)",
-            web_app=WebAppInfo(url=f"{settings.BOT_WEBHOOK_URL}/webapp/payment/{package}")
+            web_app=WebAppInfo(url=f"{settings.BOT_WEBHOOK_URL}/webapp/payment/{tariff_id}")
         )])
     
     # Навигация

@@ -89,11 +89,11 @@ services:
     ports:
       - "8000:8000"
 
-  generator:
+  celery_worker:
     build:
       context: .
       dockerfile: Dockerfile.generator
-    container_name: ai_generator
+    container_name: celery_worker
     runtime: nvidia
     environment:
       - CUDA_VISIBLE_DEVICES=0,1,2

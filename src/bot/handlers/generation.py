@@ -14,7 +14,7 @@ from src.bot.keyboards.main import (
     get_style_selection_keyboard, get_quality_selection_keyboard
 )
 from src.database.crud import UserCRUD, GenerationCRUD
-from src.shared.redis_client import redis_client
+from src.generator.tasks import generate_image_task
 from src.shared.config import QUALITY_SETTINGS, IMAGE_STYLES
 
 logger = logging.getLogger(__name__)
@@ -285,13 +285,14 @@ async def process_quality_selection(callback: CallbackQuery, user: dict, state: 
             "task_id": f"{user['telegram_id']}_{int(datetime.utcnow().timestamp())}"
         }
         
-        # Добавляем в очередь
-        queue_name = "priority_queue" if priority else "generation_queue"
-        await redis_client.add_to_generation_queue(generation_task, priority)
+        # Добавляем в очередь Celery
+        generate_image_task.delay(json.dumps(generation_task))
         
-        # Получаем позицию в очереди
-        queue_position = await redis_client.get_queue_length(queue_name)
-        estimated_time = queue_position * 25  # Примерно 25 секунд на изображение
+        # В Celery нет простого способа получить позицию в очереди, 
+        # поэтому пока уберем эту информацию для пользователя.
+        # Можно реализовать кастомный механизм отслеживания.
+        queue_position = "?"
+        estimated_time = "~1-2 минуты"
         
         await processing_msg.edit_text(
             f"🎨 <b>Ваш запрос принят!</b>\n\n"
@@ -299,8 +300,7 @@ async def process_quality_selection(callback: CallbackQuery, user: dict, state: 
             f"🎨 <b>Стиль:</b> {IMAGE_STYLES.get(style, {}).get('name', style)}\n"
             f"⚙️ <b>Качество:</b> {QUALITY_SETTINGS.get(quality, {}).get('name', quality)}\n"
             f"📐 <b>Размер:</b> {size}\n\n"
-            f"📊 <b>Позиция в очереди:</b> {queue_position}\n"
-            f"⏱️ <b>Примерное время:</b> {estimated_time // 60}м {estimated_time % 60}с\n"
+            f"⏱️ <b>Примерное время:</b> {estimated_time}\n"
             f"💰 <b>Новый баланс:</b> {new_balance} изображений",
             reply_markup=processing_keyboard
         )

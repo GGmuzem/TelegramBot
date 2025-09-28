@@ -10,8 +10,10 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler
+from aiogram.types import URLInputFile
+import json
 
-import aioredis
+from redis.asyncio import Redis
 
 # Импорты модулей бота
 from src.bot.handlers import start, payment, generation, admin
@@ -42,7 +44,7 @@ class TelegramBot:
         
         # Redis storage для FSM
         self.redis_storage = RedisStorage(
-            redis=aioredis.from_url(settings.REDIS_URL)
+            redis=Redis.from_url(settings.REDIS_URL)
         )
         
         # Создание диспетчера
@@ -53,6 +55,9 @@ class TelegramBot:
         
         # Регистрация handlers
         self._setup_handlers()
+
+        # Фоновая задача для прослушивания результатов
+        self.results_listener_task = None
     
     def _setup_middlewares(self):
         """Настройка middleware"""
@@ -74,6 +79,30 @@ class TelegramBot:
             admin.router
         )
     
+    async def results_listener(self):
+        logger.info("Starting results listener...")
+        while True:
+            try:
+                result_raw = await redis_client.redis.brpop("results_queue")
+                if result_raw:
+                    _, result_data_str = result_raw
+                    result_data = json.loads(result_data_str)
+                    
+                    chat_id = result_data['chat_id']
+                    prompt = result_data['prompt']
+                    image_url = result_data['image_url']
+                    
+                    # Отправляем результат пользователю
+                    image = URLInputFile(image_url)
+                    await self.bot.send_photo(
+                        chat_id=chat_id,
+                        photo=image,
+                        caption=f"✅ Ваше изображение по запросу «{prompt[:50]}...» готово!"
+                    )
+            except Exception as e:
+                logger.error(f"Error in results_listener: {e}")
+            await asyncio.sleep(1)
+
     async def on_startup(self):
         """Инициализация при запуске"""
         try:
@@ -93,6 +122,9 @@ class TelegramBot:
                 )
                 logger.info(f"Webhook установлен: {webhook_url}")
             
+            # Запускаем слушателя результатов
+            self.results_listener_task = asyncio.create_task(self.results_listener())
+            
             logger.info("🚀 Telegram Bot успешно запущен!")
             
         except Exception as e:
@@ -105,6 +137,11 @@ class TelegramBot:
             await self.bot.delete_webhook()
             await self.dp.fsm.storage.close()
             await redis_client.disconnect()
+
+            # Останавливаем слушателя
+            if self.results_listener_task:
+                self.results_listener_task.cancel()
+
             logger.info("🛑 Telegram Bot остановлен")
         except Exception as e:
             logger.error(f"Ошибка остановки бота: {e}")

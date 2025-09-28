@@ -33,6 +33,13 @@ class Settings(BaseSettings):
     MINIO_SECRET_KEY: str = "minioadmin"
     MODEL_CACHE_DIR: Path = Path("./models")
 
+    # ——— Фискализация (АТОЛ) ———
+    ATOL_LOGIN: str | None = None
+    ATOL_PASSWORD: str | None = None
+    ATOL_GROUP_CODE: str | None = None
+    ATOL_COMPANY_INN: str | None = None
+    ATOL_PAYMENT_ADDRESS: str | None = None
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
@@ -43,10 +50,3 @@ def get_settings() -> Settings:
 
 settings = get_settings()
 
-# Пакеты для продажи
-PACKAGES = {
-    "once":    {"name": "Разовая",  "price": 49,  "images": 1,  "quality": "standard"},
-    "basic":   {"name": "Базовый",  "price": 299, "images": 10, "quality": "standard"},
-    "premium": {"name": "Премиум",  "price": 599, "images": 25, "quality": "high"},
-    "pro":     {"name": "Профи",    "price": 1299,"images": 60, "quality": "ultra"},
-}

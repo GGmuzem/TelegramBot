@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from sqlalchemy import select, update, func
 from src.database.connection import get_session
-from src.database.models import User, Payment, PaymentStatus
+from src.database.models import User, Payment, PaymentStatus, Tariff
 
 class UserCRUD:
     async def get_or_create_user(self, **kwargs):
@@ -26,6 +26,16 @@ class UserCRUD:
         async with get_session() as s:
             await s.execute(update(User).where(User.telegram_id==tid).values(total_spent=User.total_spent+Decimal(str(add))))
             await s.commit()
+
+class TariffCRUD:
+    async def get_active_tariffs(self):
+        async with get_session() as s:
+            query = await s.execute(select(Tariff).where(Tariff.is_active == True).order_by(Tariff.price))
+            return query.scalars().all()
+
+    async def get_by_id(self, tariff_id: int):
+        async with get_session() as s:
+            return await s.get(Tariff, tariff_id)
 
 class PaymentCRUD:
     async def create_payment(self, **data):

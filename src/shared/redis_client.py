@@ -1,4 +1,6 @@
-import json, logging, aioredis
+import json, logging
+import aioredis
+import redis
 from typing import Any
 
 from src.shared.config import settings
@@ -8,11 +10,13 @@ logger = logging.getLogger(__name__)
 class RedisClient:
     def __init__(self):
         self.redis: aioredis.Redis | None = None
+        self.sync_redis: redis.Redis | None = None
 
     async def connect(self):
         if not self.redis:
             self.redis = aioredis.from_url(str(settings.REDIS_URL), decode_responses=True)
             await self.redis.ping()
+            self.sync_redis = redis.from_url(str(settings.REDIS_URL), decode_responses=True)
             logger.info("✅ Redis connected")
 
     async def disconnect(self):

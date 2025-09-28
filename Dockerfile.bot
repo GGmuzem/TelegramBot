@@ -26,11 +26,6 @@ USER user
 
 # Копируем код приложения
 COPY --chown=user:user ./src /app/src
-COPY --chown=user:user ./config.py /app/
-COPY --chown=user:user ./database_models.py /app/
-COPY --chown=user:user ./database_crud.py /app/
-COPY --chown=user:user ./telegram_bot.py /app/
-COPY --chown=user:user ./redis_client.py /app/
 
 # Устанавливаем переменные окружения
 ENV PYTHONPATH=/app
@@ -40,4 +35,4 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 8000
 
 # Команда запуска
-CMD ["python", "telegram_bot.py"]
+CMD ["python", "src/bot/main.py"]
