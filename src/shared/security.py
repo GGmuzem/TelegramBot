@@ -7,7 +7,7 @@ import hashlib
 import hmac
 import base64
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional, Union
 import re
 import json
@@ -60,13 +60,13 @@ class SecurityManager:
         to_encode = data.copy()
         
         if expires_delta:
-            expire = datetime.utcnow() + expires_delta
+            expire = datetime.now(timezone.utc) + expires_delta
         else:
-            expire = datetime.utcnow() + self.jwt_access_token_expire
+            expire = datetime.now(timezone.utc) + self.jwt_access_token_expire
         
         to_encode.update({
             "exp": expire,
-            "iat": datetime.utcnow(),
+            "iat": datetime.now(timezone.utc),
             "type": "access"
         })
         
@@ -81,11 +81,11 @@ class SecurityManager:
     def create_refresh_token(self, data: Dict[str, Any]) -> str:
         """Создание JWT refresh токена"""
         to_encode = data.copy()
-        expire = datetime.utcnow() + self.jwt_refresh_token_expire
+        expire = datetime.now(timezone.utc) + self.jwt_refresh_token_expire
         
         to_encode.update({
             "exp": expire,
-            "iat": datetime.utcnow(),
+            "iat": datetime.now(timezone.utc),
             "type": "refresh"
         })
         
@@ -195,7 +195,7 @@ class SecurityManager:
     
     def generate_payment_id(self, user_id: int, provider: str = "yookassa") -> str:
         """Генерация уникального ID платежа"""
-        timestamp = int(datetime.utcnow().timestamp())
+        timestamp = int(datetime.now(timezone.utc).timestamp())
         random_part = secrets.token_hex(4)
         return f"{provider}_{user_id}_{timestamp}_{random_part}"
     
@@ -412,7 +412,7 @@ class SecurityManager:
     ):
         """Логирование событий безопасности"""
         event_data = {
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now(timezone.utc).isoformat(),
             'event_type': event_type,
             'user_id': user_id,
             'details': details or {},

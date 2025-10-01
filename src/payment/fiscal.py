@@ -1,6 +1,6 @@
 import logging
 import aiohttp
-from datetime import datetime
+from datetime import datetime, timezone
 from src.shared.config import settings
 
 logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ class AtolFiscalService:
         
         receipt = {
             "external_id": payment_id,
-            "timestamp": datetime.utcnow().strftime("%d.%m.%Y %H:%M:%S"),
+            "timestamp": datetime.now(timezone.utc).strftime("%d.%m.%Y %H:%M:%S"),
             "receipt": {
                 "client": {"email": user_email},
                 "company": {

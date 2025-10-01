@@ -3,7 +3,7 @@
 """
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message, FSInputFile
 from aiogram.fsm.context import FSMContext
@@ -281,8 +281,8 @@ async def process_quality_selection(callback: CallbackQuery, user: dict, state: 
             "priority": priority,
             "message_id": processing_msg.message_id,
             "chat_id": callback.message.chat.id,
-            "created_at": datetime.utcnow().isoformat(),
-            "task_id": f"{user['telegram_id']}_{int(datetime.utcnow().timestamp())}"
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "task_id": f"{user['telegram_id']}_{int(datetime.now(timezone.utc).timestamp())}"
         }
         
         # Добавляем в очередь Celery

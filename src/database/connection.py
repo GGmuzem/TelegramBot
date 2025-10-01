@@ -72,10 +72,10 @@ async def close_database():
         logger.info("🔌 Подключение к базе данных закрыто")
 
 
-async def get_session() -> AsyncSession:
+def get_session() -> AsyncSession:
     """Получение сессии базы данных"""
     if not async_session:
-        await init_database()
+        raise RuntimeError("Database not initialized. Call init_database() first.")
     
     return async_session()
 
@@ -169,7 +169,7 @@ class DatabaseSession:
         self.session = None
     
     async def __aenter__(self) -> AsyncSession:
-        self.session = await get_session()
+        self.session = get_session()
         return self.session
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):

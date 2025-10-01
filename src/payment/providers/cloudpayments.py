@@ -184,7 +184,7 @@ class CloudPaymentsProvider:
                         await self.payment_crud.update_metadata(
                             payment.id,
                             {
-                                **payment.metadata,
+                                **(payment.payment_metadata or {}),
                                 'cloudpayments_transaction_id': model.get('TransactionId'),
                                 'cloudpayments_response': response_data,
                                 'payment_url': model.get('PaReq')  # URL для оплаты
@@ -230,7 +230,7 @@ class CloudPaymentsProvider:
                             payment.id,
                             PaymentStatus.FAILED,
                             {
-                                **payment.metadata,
+                                **(payment.payment_metadata or {}),
                                 'error': error_message,
                                 'cloudpayments_response': response_data
                             }
@@ -264,7 +264,7 @@ class CloudPaymentsProvider:
             if not payment:
                 return None
             
-            transaction_id = payment.metadata.get('cloudpayments_transaction_id')
+            transaction_id = payment.payment_metadata.get('cloudpayments_transaction_id')
             if not transaction_id:
                 return {'status': 'pending'}
             
@@ -323,7 +323,7 @@ class CloudPaymentsProvider:
                     'error': 'Платеж не найден'
                 }
             
-            transaction_id = payment.metadata.get('cloudpayments_transaction_id')
+            transaction_id = payment.payment_metadata.get('cloudpayments_transaction_id')
             if not transaction_id:
                 # Платеж еще не был отправлен в CloudPayments
                 await self.payment_crud.update_status(
@@ -360,7 +360,7 @@ class CloudPaymentsProvider:
                                 payment.id,
                                 PaymentStatus.CANCELED,
                                 {
-                                    **payment.metadata,
+                                    **(payment.payment_metadata or {}),
                                     'canceled_at': datetime.now().isoformat(),
                                     'cancel_response': data
                                 }
@@ -446,7 +446,7 @@ class CloudPaymentsProvider:
                 payment.id,
                 PaymentStatus.SUCCEEDED,
                 {
-                    **payment.metadata,
+                    **(payment.payment_metadata or {}),
                     'cloudpayments_webhook': webhook_data,
                     'completed_at': datetime.now().isoformat()
                 }
@@ -455,7 +455,7 @@ class CloudPaymentsProvider:
             # Пополняем баланс пользователя
             user = await self.user_crud.get_by_telegram_id(payment.user_id)
             if user:
-                images_count = payment.metadata.get('images_count', 1)
+                images_count = (payment.payment_metadata or {}).get('images_count', 1)
                 new_balance = user.balance + images_count
                 
                 await self.user_crud.update_balance(payment.user_id, new_balance)
@@ -485,7 +485,7 @@ class CloudPaymentsProvider:
                 payment.id,
                 status,
                 {
-                    **payment.metadata,
+                    **(payment.payment_metadata or {}),
                     'cloudpayments_webhook': webhook_data,
                     'failed_at': datetime.now().isoformat(),
                     'failure_reason': webhook_data.get('Reason', 'Unknown')

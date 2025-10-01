@@ -1,8 +1,9 @@
 import enum, uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
-from sqlalchemy import Enum, DateTime, Boolean, String, Integer, Numeric, ForeignKey
+from sqlalchemy import Enum, DateTime, Boolean, String, Integer, Numeric, ForeignKey, JSON
 from sqlalchemy.orm import mapped_column, Mapped, relationship, DeclarativeBase
+from typing import Optional
 
 class Base(DeclarativeBase): pass
 
@@ -17,8 +18,8 @@ class User(Base):
     last_name:   Mapped[str | None]
     balance:     Mapped[int] = mapped_column(Integer, default=0)
     is_admin:    Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at:  Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    last_activity: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at:  Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    last_activity: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     # — Подписка
     subscription_type: Mapped[str | None] = mapped_column(String, default=None)
     subscription_expires_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
@@ -47,7 +48,7 @@ class Payment(Base):
     provider:    Mapped[str]
     amount:      Mapped[Decimal]   = mapped_column(Numeric(10,2))
     status:      Mapped[PaymentStatus] = mapped_column(Enum(PaymentStatus))
-    created_at:  Mapped[datetime]  = mapped_column(DateTime, default=datetime.utcnow)
-    metadata:    Mapped[dict]      = mapped_column(default=dict)
+    created_at:  Mapped[datetime]  = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    payment_metadata: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True, default=None)
 
     user: Mapped[User] = relationship(back_populates="payments")

@@ -1,5 +1,5 @@
 import json, logging
-import aioredis
+import redis.asyncio as aioredis
 import redis
 from typing import Any
 
