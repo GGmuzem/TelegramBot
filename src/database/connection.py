@@ -6,6 +6,7 @@ import logging
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
+from sqlalchemy import text
 
 from src.shared.config import settings
 from src.database.models import Base
@@ -55,12 +56,76 @@ async def init_database():
         
         # Проверяем подключение
         async with async_session() as session:
-            await session.execute("SELECT 1")
+            await session.execute(text("SELECT 1"))
             logger.info("✅ Подключение к базе данных проверено")
+        
+        # Инициализируем тарифы по умолчанию
+        await _init_default_tariffs()
             
     except Exception as e:
         logger.error(f"❌ Ошибка инициализации базы данных: {e}")
         raise
+
+
+async def _init_default_tariffs():
+    """Создание тарифов по умолчанию если их нет"""
+    from src.database.models import Tariff
+    from decimal import Decimal
+    
+    try:
+        async with get_session() as session:
+            # Проверяем есть ли тарифы
+            result = await session.execute(text("SELECT COUNT(*) FROM tariffs"))
+            count = result.scalar()
+            
+            if count == 0:
+                logger.info("Создаю тарифы по умолчанию...")
+                
+                default_tariffs = [
+                    Tariff(
+                        name="Базовый",
+                        price=Decimal("100.00"),
+                        generations=10,
+                        image_size="512x512",
+                        priority=False,
+                        is_active=True
+                    ),
+                    Tariff(
+                        name="Стандарт",
+                        price=Decimal("300.00"),
+                        generations=35,
+                        image_size="768x768",
+                        priority=False,
+                        is_active=True
+                    ),
+                    Tariff(
+                        name="Премиум",
+                        price=Decimal("500.00"),
+                        generations=65,
+                        image_size="1024x1024",
+                        priority=True,
+                        is_active=True
+                    ),
+                    Tariff(
+                        name="Профи",
+                        price=Decimal("1000.00"),
+                        generations=150,
+                        image_size="1024x1024",
+                        priority=True,
+                        is_active=True
+                    )
+                ]
+                
+                for tariff in default_tariffs:
+                    session.add(tariff)
+                
+                await session.commit()
+                logger.info(f"✅ Создано {len(default_tariffs)} тарифов по умолчанию")
+            else:
+                logger.info(f"Тарифы уже существуют ({count} шт.)")
+                
+    except Exception as e:
+        logger.error(f"Ошибка при создании тарифов: {e}")
 
 
 async def close_database():
@@ -84,7 +149,7 @@ async def health_check() -> bool:
     """Проверка работоспособности базы данных"""
     try:
         async with get_session() as session:
-            result = await session.execute("SELECT 1 as health")
+            result = await session.execute(text("SELECT 1 as health"))
             return result.scalar() == 1
     except Exception as e:
         logger.error(f"Database health check failed: {e}")
@@ -131,18 +196,18 @@ class DatabaseManager:
         try:
             async with self.create_session() as session:
                 # Версия PostgreSQL
-                result = await session.execute("SELECT version()")
+                result = await session.execute(text("SELECT version()"))
                 version = result.scalar()
                 
                 # Размер базы данных
                 result = await session.execute(
-                    "SELECT pg_size_pretty(pg_database_size(current_database()))"
+                    text("SELECT pg_size_pretty(pg_database_size(current_database()))")
                 )
                 size = result.scalar()
                 
                 # Количество подключений
                 result = await session.execute(
-                    "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database()"
+                    text("SELECT count(*) FROM pg_stat_activity WHERE datname = current_database()")
                 )
                 connections = result.scalar()
                 
@@ -194,13 +259,13 @@ def with_database_session(func):
 async def create_migration_table():
     """Создание таблицы миграций"""
     async with get_session() as session:
-        await session.execute("""
+        await session.execute(text("""
             CREATE TABLE IF NOT EXISTS migrations (
                 id SERIAL PRIMARY KEY,
                 name VARCHAR(255) NOT NULL UNIQUE,
                 applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """))
         await session.commit()
 
 
@@ -209,7 +274,7 @@ async def apply_migration(migration_name: str, migration_sql: str):
     async with get_session() as session:
         # Проверяем, была ли миграция уже применена
         result = await session.execute(
-            "SELECT id FROM migrations WHERE name = :name",
+            text("SELECT id FROM migrations WHERE name = :name"),
             {"name": migration_name}
         )
         
@@ -219,11 +284,11 @@ async def apply_migration(migration_name: str, migration_sql: str):
         
         try:
             # Выполняем миграцию
-            await session.execute(migration_sql)
+            await session.execute(text(migration_sql))
             
             # Записываем в таблицу миграций
             await session.execute(
-                "INSERT INTO migrations (name) VALUES (:name)",
+                text("INSERT INTO migrations (name) VALUES (:name)"),
                 {"name": migration_name}
             )
             
@@ -241,7 +306,7 @@ async def get_applied_migrations():
     try:
         async with get_session() as session:
             result = await session.execute(
-                "SELECT name, applied_at FROM migrations ORDER BY applied_at"
+                text("SELECT name, applied_at FROM migrations ORDER BY applied_at")
             )
             return result.fetchall()
     except Exception as e:
@@ -295,7 +360,7 @@ async def get_database_stats():
     try:
         async with get_session() as session:
             # Статистика таблиц
-            tables_stats = await session.execute("""
+            tables_stats = await session.execute(text("""
                 SELECT 
                     schemaname,
                     tablename,
@@ -306,24 +371,24 @@ async def get_database_stats():
                     n_dead_tup
                 FROM pg_stat_user_tables
                 ORDER BY n_live_tup DESC
-            """)
+            """))
             
             # Статистика подключений
-            connections_stats = await session.execute("""
+            connections_stats = await session.execute(text("""
                 SELECT 
                     count(*) as total_connections,
                     count(*) FILTER (WHERE state = 'active') as active_connections,
                     count(*) FILTER (WHERE state = 'idle') as idle_connections
                 FROM pg_stat_activity 
                 WHERE datname = current_database()
-            """)
+            """))
             
             # Размер базы данных
-            db_size = await session.execute("""
+            db_size = await session.execute(text("""
                 SELECT 
                     pg_size_pretty(pg_database_size(current_database())) as db_size,
                     pg_database_size(current_database()) as db_size_bytes
-            """)
+            """))
             
             return {
                 "tables": tables_stats.fetchall(),

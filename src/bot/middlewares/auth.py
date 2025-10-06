@@ -40,8 +40,7 @@ class AuthMiddleware(BaseMiddleware):
                 telegram_id=telegram_user.id,
                 username=telegram_user.username,
                 first_name=telegram_user.first_name or "Unknown",
-                last_name=telegram_user.last_name,
-                language_code=telegram_user.language_code or "ru"
+                last_name=telegram_user.last_name
             )
             
             if not user:

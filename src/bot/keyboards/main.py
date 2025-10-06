@@ -24,9 +24,6 @@ def get_main_keyboard() -> InlineKeyboardMarkup:
             callback_data="statistics"
         )],
         [InlineKeyboardButton(
-            text="📋 История", 
-            callback_data="history"
-        ), InlineKeyboardButton(
             text="❓ Помощь", 
             callback_data="help"
         )]
@@ -91,9 +88,6 @@ def get_generation_result_keyboard() -> InlineKeyboardMarkup:
             callback_data="buy_images"
         )],
         [InlineKeyboardButton(
-            text="📊 История", 
-            callback_data="history"
-        ), InlineKeyboardButton(
             text="🏠 Меню", 
             callback_data="back_to_main"
         )]

@@ -1,5 +1,6 @@
 import logging
 import json
+import asyncio
 from src.shared.celery_app import celery_app
 from src.generator.models_manager import model_manager
 from src.generator.gpu_balancer import gpu_balancer
@@ -15,18 +16,20 @@ def generate_image_task(self, task_data: str):
         task = json.loads(task_data)
         logger.info(f"Processing task: {task['task_id']}")
 
-        gpu_id = gpu_balancer.get_available_gpu(priority=task["priority"])
+        # Получаем доступный GPU через балансировщик
+        gpu_id = asyncio.run(gpu_balancer.get_available_gpu(priority=task.get("priority", False)))
         if gpu_id is None:
             logger.warning("No available GPU, retrying task...")
             raise self.retry()
 
-        img_bytes = model_manager.generate_image(
+        # Генерируем изображение
+        img_bytes = asyncio.run(model_manager.generate_image(
             gpu_id=gpu_id,
             prompt=task["prompt"],
-            style=task["style"],
-            quality=task["quality"],
-            size=task["size"]
-        )
+            style=task.get("style", "realistic"),
+            quality=task.get("quality", "standard"),
+            size=task.get("size", "512x512")
+        ))
 
         if img_bytes:
             filename = f"{task['task_id']}.jpg"
@@ -53,3 +56,21 @@ def generate_image_task(self, task_data: str):
         logger.error(f"Error in generate_image_task: {e}")
         # В случае ошибки Celery автоматически повторит попытку (max_retries=3)
         raise self.retry(exc=e)
+
+
+@celery_app.task
+def process_generation_queue():
+    """Периодическая задача для обработки очереди генерации"""
+    try:
+        # Читаем задачи из Redis очереди
+        while True:
+            task_data = redis_client.sync_redis.rpop("generation_queue")
+            if not task_data:
+                break
+            
+            # Отправляем на генерацию
+            generate_image_task.delay(task_data)
+            logger.info("Task sent to generate_image_task")
+            
+    except Exception as e:
+        logger.error(f"Error in process_generation_queue: {e}")

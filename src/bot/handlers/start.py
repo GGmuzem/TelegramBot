@@ -59,8 +59,11 @@ async def back_to_main_handler(callback: CallbackQuery, user: dict):
 @router.callback_query(F.data == "history")
 async def history_handler(message: Message | CallbackQuery, user: dict):
     """История генераций"""
+    from src.database.connection import get_session
     generation_crud = GenerationCRUD()
-    generations = await generation_crud.get_user_generations(user['telegram_id'], limit=5)
+    
+    async with get_session() as session:
+        generations = await generation_crud.get_user_generations(session, user['telegram_id'], limit=5)
     
     if not generations:
         text = "У вас еще нет генераций."
@@ -86,3 +89,59 @@ async def support_handler(message: Message | CallbackQuery, user: dict):
         await message.message.edit_text(text)
     else:
         await message.answer(text)
+
+@router.callback_query(F.data == "check_balance")
+async def check_balance_handler(callback: CallbackQuery, user: dict):
+    """Проверка баланса"""
+    from src.bot.keyboards.main import get_balance_keyboard
+    text = f"""💰 <b>Ваш баланс</b>
+
+💎 Доступно генераций: <b>{user['balance']}</b>
+📊 Всего сгенерировано: <b>{user['total_generations']}</b>
+💵 Всего потрачено: <b>{user['total_spent']:.2f}₽</b>
+
+Хотите пополнить баланс?"""
+    await callback.message.edit_text(text, reply_markup=get_balance_keyboard())
+    await callback.answer()
+
+@router.callback_query(F.data == "statistics")
+async def statistics_handler(callback: CallbackQuery, user: dict):
+    """Статистика пользователя"""
+    from src.bot.keyboards.main import get_back_keyboard
+    text = f"""📊 <b>Ваша статистика</b>
+
+👤 ID: <code>{user['telegram_id']}</code>
+📅 Дата регистрации: {user['created_at'].strftime('%d.%m.%Y')}
+🎨 Всего генераций: <b>{user['total_generations']}</b>
+💰 Текущий баланс: <b>{user['balance']}</b> изображений
+💵 Всего потрачено: <b>{user['total_spent']:.2f}₽</b>
+
+{"⭐ Подписка: " + user['subscription_type'] if user.get('subscription_type') else ""}"""
+    await callback.message.edit_text(text, reply_markup=get_back_keyboard())
+    await callback.answer()
+
+@router.callback_query(F.data == "help")
+async def help_handler(callback: CallbackQuery):
+    """Помощь"""
+    from src.bot.keyboards.main import get_back_keyboard
+    text = """❓ <b>Помощь</b>
+
+<b>Как пользоваться ботом:</b>
+
+1️⃣ <b>Генерация изображений</b>
+   Нажмите "🎨 Генерировать изображение", введите описание и выберите стиль
+
+2️⃣ <b>Покупка генераций</b>
+   Нажмите "💳 Купить изображения" и выберите пакет
+
+3️⃣ <b>Баланс</b>
+   Проверяйте свой баланс в разделе "💰 Мой баланс"
+
+<b>Поддержка:</b> @ai_support_bot
+
+<b>Тарифы:</b>
+• Базовый: 100₽ - 10 изображений
+• Стандарт: 300₽ - 35 изображений
+• Премиум: 500₽ - 65 изображений"""
+    await callback.message.edit_text(text, reply_markup=get_back_keyboard())
+    await callback.answer()

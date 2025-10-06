@@ -10,10 +10,10 @@ RUN apt-get update && apt-get install -y \
 # Рабочая директория
 WORKDIR /app
 
-# Зависимости Python
-COPY requirements.txt .
+# Зависимости Python (без AI библиотек)
+COPY requirements-bot.txt .
 RUN pip install --no-cache-dir --upgrade pip
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements-bot.txt
 
 # Пользователь
 RUN adduser --disabled-password --gecos '' --shell /bin/bash user \

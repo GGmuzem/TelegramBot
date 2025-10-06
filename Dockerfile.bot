@@ -11,20 +11,21 @@ RUN apt-get update && apt-get install -y \
 # Создаем рабочую директорию
 WORKDIR /app
 
-# Копируем requirements
-COPY requirements.txt .
+# Копируем requirements (только для бота, без AI библиотек)
+COPY requirements-bot.txt .
 
 # Устанавливаем Python зависимости
 RUN pip install --no-cache-dir --upgrade pip
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements-bot.txt
 
 # Создаем непривилегированного пользователя
 RUN adduser --disabled-password --gecos '' --shell /bin/bash user \
     && chown -R user:user /app
 USER user
 
-# Копируем код приложения
+# Копируем код приложения и скрипты
 COPY --chown=user:user ./src /app/src
+COPY --chown=user:user ./scripts /app/scripts
 
 # Устанавливаем переменные окружения
 ENV PYTHONPATH=/app

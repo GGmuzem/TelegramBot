@@ -1,8 +1,10 @@
 from datetime import datetime, timezone
 from decimal import Decimal
-from sqlalchemy import select, update, func
+from typing import Optional, List
+from sqlalchemy import select, update, delete, func
+from sqlalchemy.ext.asyncio import AsyncSession
 from src.database.connection import get_session
-from src.database.models import User, Payment, PaymentStatus, Tariff
+from src.database.models import User, Payment, PaymentStatus, Tariff, Generation
 
 class UserCRUD:
     async def get_or_create_user(self, **kwargs):
@@ -26,6 +28,11 @@ class UserCRUD:
         async with get_session() as s:
             await s.execute(update(User).where(User.telegram_id==tid).values(total_spent=User.total_spent+Decimal(str(add))))
             await s.commit()
+    
+    async def update_last_activity(self, tid: int):
+        async with get_session() as s:
+            await s.execute(update(User).where(User.telegram_id==tid).values(last_activity=datetime.now(timezone.utc)))
+            await s.commit()
 
 class TariffCRUD:
     async def get_active_tariffs(self):
@@ -36,6 +43,96 @@ class TariffCRUD:
     async def get_by_id(self, tariff_id: int):
         async with get_session() as s:
             return await s.get(Tariff, tariff_id)
+
+class GenerationCRUD:
+    """CRUD операции для генераций изображений"""
+    
+    @staticmethod
+    async def create_generation(
+        session: AsyncSession,
+        user_id: int,
+        prompt: str,
+        style: str,
+        quality: str,
+        size: str = "512x512",
+        status: str = "pending"
+    ) -> Generation:
+        """Создание новой генерации"""
+        generation = Generation(
+            user_id=user_id,
+            prompt=prompt,
+            style=style,
+            quality=quality,
+            size=size,
+            status=status,
+            created_at=datetime.now(timezone.utc)
+        )
+        session.add(generation)
+        await session.commit()
+        await session.refresh(generation)
+        return generation
+    
+    @staticmethod
+    async def get_generation(session: AsyncSession, generation_id: int) -> Optional[Generation]:
+        """Получение генерации по ID"""
+        result = await session.execute(
+            select(Generation).where(Generation.id == generation_id)
+        )
+        return result.scalar_one_or_none()
+    
+    @staticmethod
+    async def get_user_generations(
+        session: AsyncSession,
+        user_id: int,
+        limit: int = 10
+    ) -> List[Generation]:
+        """Получение истории генераций пользователя"""
+        result = await session.execute(
+            select(Generation)
+            .where(Generation.user_id == user_id)
+            .order_by(Generation.created_at.desc())
+            .limit(limit)
+        )
+        return result.scalars().all()
+    
+    @staticmethod
+    async def update_generation_status(
+        session: AsyncSession,
+        generation_id: int,
+        status: str,
+        image_url: str = None
+    ) -> None:
+        """Обновление статуса генерации"""
+        values = {"status": status}
+        if image_url:
+            values["image_url"] = image_url
+        if status == "completed":
+            values["completed_at"] = datetime.now(timezone.utc)
+        
+        await session.execute(
+            update(Generation)
+            .where(Generation.id == generation_id)
+            .values(**values)
+        )
+        await session.commit()
+    
+    @staticmethod
+    async def get_pending_generations(session: AsyncSession) -> List[Generation]:
+        """Получение всех ожидающих генераций"""
+        result = await session.execute(
+            select(Generation)
+            .where(Generation.status == "pending")
+            .order_by(Generation.created_at.asc())
+        )
+        return result.scalars().all()
+    
+    @staticmethod
+    async def delete_generation(session: AsyncSession, generation_id: int) -> None:
+        """Удаление генерации"""
+        await session.execute(
+            delete(Generation).where(Generation.id == generation_id)
+        )
+        await session.commit()
 
 class PaymentCRUD:
     async def create_payment(self, **data):

@@ -15,8 +15,11 @@ import json
 
 from redis.asyncio import Redis
 
-# Импорты модулей бота
-from src.bot.handlers import start, payment, generation, admin
+# Импорты модулов бота
+from src.bot.handlers import start, payment
+from src.bot.handlers import generation_simple
+# admin handler временно отключен (требует PyTorch)
+# from src.bot.handlers import admin
 from src.bot.middlewares.auth import AuthMiddleware
 from src.bot.middlewares.rate_limit import RateLimitMiddleware
 from src.shared.config import settings
@@ -75,8 +78,8 @@ class TelegramBot:
         self.dp.include_routers(
             start.router,
             payment.router,
-            generation.router,
-            admin.router
+            generation_simple.router
+            # admin.router временно отключен
         )
     
     async def results_listener(self):
